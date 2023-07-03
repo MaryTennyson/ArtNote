@@ -17,10 +17,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.ebraratabay.artnote.databinding.ActivityArtBinding
 import com.google.android.material.snackbar.Snackbar
+import java.io.ByteArrayOutputStream
 
 class ArtActivity : AppCompatActivity() {
     private lateinit var binding: ActivityArtBinding
-  var selectedBitmap:Bitmap? =null
+    var selectedBitmap: Bitmap? = null
     private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,19 +34,61 @@ class ArtActivity : AppCompatActivity() {
     }
 
     fun onSaveClicked(view: View) {
+        val artName = binding.artNameText.text.toString()
+        val artistName= binding.artistName.text.toString()
+        val year= binding.yearOfArt.text.toString()
 
+  if(selectedBitmap!=null){
+      val smallBitmap= makeSmallerBitmap(selectedBitmap!!,300)
+      val outputStream= ByteArrayOutputStream( )
+      smallBitmap.compress(Bitmap.CompressFormat.JPEG, 50,outputStream)
+      val byteArray= outputStream.toByteArray()
+
+      try {
+      val database= this.openOrCreateDatabase("arts", MODE_PRIVATE,null)
+      database.execSQL("CREATE TABLE IF NOT EXISTS arts(id INTEGER PRIMARY KEY, artname VARCHAR, artistname VARCHAR,year VARCHAR, image BLOB)")
+  val sqlString= "INSERT INTO arsts(artname,artistname,year,image) VALUES (?,?,?,?)"
+          val statement= database.compileStatement(sqlString)
+          statement.bindString(1,artName)
+          statement.bindString(2,artistName)
+          statement.bindString(3,year)
+          statement.bindBlob(4,byteArray)
+          statement.execute()
+      }catch (e: Exception){
+          e.printStackTrace()
+      }
+      val intent= Intent(this@ArtActivity,MainActivity:: class.java)
+      intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+      startActivity(intent)
+  }
+
+    }
+
+    private fun makeSmallerBitmap(image: Bitmap, maximumSize: Int): Bitmap{
+       var width= image.width
+        var height= image.height
+        val bitmapRatio: Double = width.toDouble()/height.toDouble()
+        if(bitmapRatio>1){
+            width=maximumSize
+            val scaledHeight= width/bitmapRatio
+            height=scaledHeight.toInt()
+        }else{
+            height=maximumSize
+            val scaledwidth= height*bitmapRatio
+            width=scaledwidth.toInt()
+        }
+
+        return Bitmap.createScaledBitmap(image,width,height,true)
 
     }
 
     fun onSelectImage(view: View) {
         if (ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE
+                this, android.Manifest.permission.READ_EXTERNAL_STORAGE
             ) != PackageManager.PERMISSION_GRANTED
         ) { //rationale
             if (ActivityCompat.shouldShowRequestPermissionRationale(
-                    this,
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+                    this, android.Manifest.permission.READ_EXTERNAL_STORAGE
                 )
             ) {
                 Snackbar.make(view, "Permission needed for gallery", Snackbar.LENGTH_INDEFINITE)
@@ -53,7 +96,7 @@ class ArtActivity : AppCompatActivity() {
                         permissionLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                     }).show()
             } else {
-   permissionLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                permissionLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         } else {
             val intentToGallery =
@@ -63,35 +106,44 @@ class ArtActivity : AppCompatActivity() {
         }
     }
 
-private fun registerLauncher(){
-    activityResultLauncher= registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result -> if(result.resultCode== RESULT_OK){
-        val intentFromResult= result.data
-        if (intentFromResult!=null){
-            val imageData= intentFromResult.data
-          //  binding.imageView.setImageURI(imageData)
-            if(imageData!=null){
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val source=ImageDecoder.createSource(this@ArtActivity.contentResolver,imageData)
-                  selectedBitmap= ImageDecoder.decodeBitmap(source)
-                  binding.imageView.setImageBitmap(selectedBitmap)
-              } else {
-                 selectedBitmap= MediaStore.Images.Media.getBitmap(contentResolver, imageData)
-              }
-            }catch (e:Exception){
-                e.printStackTrace()
-            }}
-        }
-    }
+    private fun registerLauncher() {
+        activityResultLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == RESULT_OK) {
+                    val intentFromResult = result.data
+                    if (intentFromResult != null) {
+                        val imageData = intentFromResult.data
+                        //  binding.imageView.setImageURI(imageData)
+                        if (imageData != null) {
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    val source = ImageDecoder.createSource(
+                                        this@ArtActivity.contentResolver, imageData
+                                    )
+                                    selectedBitmap = ImageDecoder.decodeBitmap(source)
+                                    binding.imageView.setImageBitmap(selectedBitmap)
+                                } else {
+                                    selectedBitmap = MediaStore.Images.Media.getBitmap(
+                                        contentResolver, imageData
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                }
 
+            }
+        permissionLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
+                if (result) {
+                    val intentToGallery =
+                        Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                    activityResultLauncher.launch(intentToGallery)
+                } else {
+                    Toast.makeText(this@ArtActivity, "Permission needed", Toast.LENGTH_LONG).show()
+                }
+            }
+    }
 }
- permissionLauncher  = registerForActivityResult(ActivityResultContracts.RequestPermission()){
-     result-> if(result){
-     val intentToGallery =
-         Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-     activityResultLauncher.launch(intentToGallery)
- }else{
-     Toast.makeText(this@ArtActivity, "Permission needed", Toast.LENGTH_LONG).show()
- }
- }
-}}
