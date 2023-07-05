@@ -1,25 +1,33 @@
 package com.ebraratabay.artnote
 
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.ebraratabay.artnote.databinding.RecyclerrowBinding
+import com.ebraratabay.artnote.databinding.RecyclerRowBinding
 
-class ArtAdapter(val artList: ArrayList<Art>) : RecyclerView.Adapter<ArtAdapter.ArtHolder> (){
-    class ArtHolder(val binding: RecyclerrowBinding): RecyclerView.ViewHolder(binding.root){
 
+class ArtAdapter(val artList : ArrayList<Art>) : RecyclerView.Adapter<ArtAdapter.ArtHolder>() {
+    class ArtHolder(val binding: RecyclerRowBinding) : RecyclerView.ViewHolder(binding.root) {
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ArtHolder {
-        val binding= RecyclerrowBinding.inflate(LayoutInflater.from(parent.context), parent,false)
-    return ArtHolder(binding)
-    }
-
-    override fun getItemCount(): Int {
-        TODO("Not yet implemented")
+        val binding = RecyclerRowBinding.inflate(LayoutInflater.from(parent.context),parent,false)
+        return ArtHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ArtHolder, position: Int) {
-        TODO("Not yet implemented")
+        holder.binding.recyclerViewTextView.text = artList.get(position).name
+        holder.itemView.setOnClickListener {
+            val intent = Intent(holder.itemView.context,ArtActivity::class.java)
+            intent.putExtra("info","old")
+            intent.putExtra("id",artList[position].id)
+            holder.itemView.context.startActivity(intent)
+        }
     }
+
+    override fun getItemCount(): Int {
+        return artList.size
+    }
+
 }

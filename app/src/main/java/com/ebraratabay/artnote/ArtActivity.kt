@@ -2,7 +2,9 @@ package com.ebraratabay.artnote
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -24,12 +26,44 @@ class ArtActivity : AppCompatActivity() {
     var selectedBitmap: Bitmap? = null
     private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
+    private lateinit var database: SQLiteDatabase
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityArtBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
+        database=this.openOrCreateDatabase("Arts", MODE_PRIVATE,null)
         registerLauncher()
+        val intent = intent
+        val info= intent.getStringExtra("info")
+        if(info.equals("new")){
+           binding.artNameText.setText("")
+            binding.yearOfArt.setText("")
+            binding.artistName.setText("")
+            binding.imageView.setImageResource(R.drawable.image)
+            binding.saveButton.visibility=View.VISIBLE
+        }else{
+            binding.saveButton.visibility=View.INVISIBLE
+            val selectedId= intent.getIntExtra("id", 1)
+            val cursor= database.rawQuery("SELECT * FROM arts WHERE id= ?", arrayOf(selectedId.toString()))
+
+            val artNameIx= cursor.getColumnIndex("artname")
+            val artistNameIx= cursor.getColumnIndex("artistname")
+            val yearIx= cursor.getColumnIndex("year")
+            val imageIx= cursor.getColumnIndex("image")
+            while (cursor.moveToNext()){
+                binding.artNameText.setText(cursor.getString(artNameIx))
+                binding.artistName.setText(cursor.getString(artistNameIx))
+                binding.yearOfArt.setText(cursor.getString(yearIx))
+
+                val byteArray= cursor.getBlob(imageIx)
+                val bitmap= BitmapFactory.decodeByteArray(byteArray,0,byteArray.size)
+                binding.imageView.setImageBitmap(bitmap)
+            }
+
+             cursor.close()
+
+        }
 
     }
 
@@ -45,9 +79,8 @@ class ArtActivity : AppCompatActivity() {
       val byteArray= outputStream.toByteArray()
 
       try {
-      val database= this.openOrCreateDatabase("arts", MODE_PRIVATE,null)
       database.execSQL("CREATE TABLE IF NOT EXISTS arts(id INTEGER PRIMARY KEY, artname VARCHAR, artistname VARCHAR,year VARCHAR, image BLOB)")
-  val sqlString= "INSERT INTO arsts(artname,artistname,year,image) VALUES (?,?,?,?)"
+          val sqlString= "INSERT INTO arts(artname,artistname,year,image) VALUES (?,?,?,?)"
           val statement= database.compileStatement(sqlString)
           statement.bindString(1,artName)
           statement.bindString(2,artistName)
@@ -57,7 +90,7 @@ class ArtActivity : AppCompatActivity() {
       }catch (e: Exception){
           e.printStackTrace()
       }
-      val intent= Intent(this@ArtActivity,MainActivity:: class.java)
+      val intent= Intent(this,MainActivity:: class.java)
       intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
       startActivity(intent)
   }
